@@ -1,14 +1,21 @@
 const fs = require('fs');
+const util = require('util');
 
 async function main() {
   const result = {};
 
-  // create new empty file named region-code.sql. If already exist, rewrite it with empty file
-  fs.writeFileSync('region-code.sql', 'CREATE TABLE region_codes (id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), parent_id VARCHAR(255));\n');
-  
-  const response = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=provinsi', {
-    method: 'GET'
-  });
+  // create new empty file named region_codes.sql. If already exist, rewrite it with empty file
+  fs.writeFileSync('region_codes.sql', 'CREATE TABLE region_codes (id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), parent_id VARCHAR(255));\n');
+
+  var response;
+
+  try {
+    response = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=provinsi', {
+      method: 'GET'
+    });
+  } catch (err) {
+    console.log(err);
+  }
   const data = await response.json();
 
   for (let i = 0; i < data.length; i++) {
@@ -19,11 +26,19 @@ async function main() {
       name: data[i]['nama']
     };
 
-    fs.appendFileSync('region-code.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${provinceCode}', '${data[i]['nama']}', '');\n`);
+    fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${provinceCode}', '${data[i]['nama']}', '');\n`);
 
-    const responseKabupaten = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kabupaten&parent=' + provinceCode, {
-      method: 'GET'
-    });
+    var responseKabupaten;
+    try {
+      responseKabupaten = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kabupaten&parent=' + provinceCode, {
+        method: 'GET'
+      });
+    } catch (err) {
+      console.log(err);
+      fs.appendFileSync('err.log', `Error fetching kabupaten with code ${provinceCode}: ${err}\n`);
+
+      continue;
+    }
     const kabupatenData = await responseKabupaten.json();
 
     result[provinceCode]['kabupaten'] = [];
@@ -35,16 +50,24 @@ async function main() {
         name: kabupatenData[j]['nama']
       });
 
-      fs.appendFileSync('region-code.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kabupatenCode}', '${kabupatenData[j]['nama']}', '${provinceCode}');\n`);
+      fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kabupatenCode}', '${kabupatenData[j]['nama']}', '${provinceCode}');\n`);
 
       result[kabupatenCode] = {
         id: kabupatenCode,
         name: kabupatenData[j]['nama']
       };
 
-      const responseKecamatan = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kecamatan&parent=' + kabupatenCode, {
-        method: 'GET'
-      });
+      var responseKecamatan;
+      try {
+        responseKecamatan = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kecamatan&parent=' + kabupatenCode, {
+          method: 'GET'
+        });
+      } catch (err) {
+        console.log(err);
+        fs.appendFileSync('err.log', `Error fetching kecamatan with code ${kabupatenCode}: ${err}\n`);
+
+        continue;
+      }
       const kecamatanData = await responseKecamatan.json();
 
       result[kabupatenCode]['kecamatan'] = [];
@@ -57,16 +80,23 @@ async function main() {
         });
 
 
-        fs.appendFileSync('region-code.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kecamatanCode}', '${kecamatanData[k]['nama']}', '${kabupatenCode}');\n`);
+        fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kecamatanCode}', '${kecamatanData[k]['nama']}', '${kabupatenCode}');\n`);
 
         result[kecamatanCode] = {
           id: kecamatanCode,
           name: kecamatanData[k]['nama']
         };
+        var responseKelurahan;  
+        try {
+          responseKelurahan = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kelurahan&parent=' + kecamatanCode, {
+            method: 'GET'
+          });
+        } catch (err) {
+          console.log(err);
+          fs.appendFileSync('err.log', `Error fetching kelurahan with code ${kecamatanCode}: ${err}\n`);
 
-        const responseKelurahan = await fetch('https://sig.bps.go.id/rest-drop-down/getwilayah?level=kelurahan&parent=' + kecamatanCode, {
-          method: 'GET'
-        });
+          continue;
+        }
         const kelurahanData = await responseKelurahan.json();
 
         result[kecamatanCode]['kelurahan'] = [];
@@ -78,7 +108,7 @@ async function main() {
             name: kelurahanData[l]['nama']
           });
 
-          fs.appendFileSync('region-code.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kelurahanCode}', '${kelurahanData[l]['nama']}', '${kecamatanCode}');\n`);
+          fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kelurahanCode}', '${kelurahanData[l]['nama']}', '${kecamatanCode}');\n`);
 
           result[kelurahanCode] = {
             id: kelurahanCode,
@@ -91,7 +121,7 @@ async function main() {
 
   const writeFile = util.promisify(fs.writeFile);
 
-  await writeFile('bps-region-code.json', JSON.stringify(result, null, 2));
+  await writeFile('region-codes.json', JSON.stringify(result, null, 2));
 }
 
 main();
