@@ -1,6 +1,11 @@
 const fs = require('fs');
 const util = require('util');
 
+// Escape single quotes in SQL strings by doubling them
+function escapeSqlString(str) {
+  return str.replace(/'/g, "''");
+}
+
 async function main() {
   const result = {};
 
@@ -26,7 +31,7 @@ async function main() {
       name: data[i]['nama']
     };
 
-    fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${provinceCode}', '${data[i]['nama']}', '');\n`);
+    fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${provinceCode}', '${escapeSqlString(data[i]['nama'])}', '');\n`);
 
     var responseKabupaten;
     try {
@@ -50,7 +55,7 @@ async function main() {
         name: kabupatenData[j]['nama']
       });
 
-      fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kabupatenCode}', '${kabupatenData[j]['nama']}', '${provinceCode}');\n`);
+      fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kabupatenCode}', '${escapeSqlString(kabupatenData[j]['nama'])}', '${provinceCode}');\n`);
 
       result[kabupatenCode] = {
         id: kabupatenCode,
@@ -80,7 +85,7 @@ async function main() {
         });
 
 
-        fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kecamatanCode}', '${kecamatanData[k]['nama']}', '${kabupatenCode}');\n`);
+        fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kecamatanCode}', '${escapeSqlString(kecamatanData[k]['nama'])}', '${kabupatenCode}');\n`);
 
         result[kecamatanCode] = {
           id: kecamatanCode,
@@ -108,7 +113,7 @@ async function main() {
             name: kelurahanData[l]['nama']
           });
 
-          fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kelurahanCode}', '${kelurahanData[l]['nama']}', '${kecamatanCode}');\n`);
+          fs.appendFileSync('region_codes.sql', `INSERT INTO region_codes (id, name, parent_id) VALUES ('${kelurahanCode}', '${escapeSqlString(kelurahanData[l]['nama'])}', '${kecamatanCode}');\n`);
 
           result[kelurahanCode] = {
             id: kelurahanCode,
